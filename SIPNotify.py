@@ -1,53 +1,43 @@
-""" Creta a code to create a SIP Notity and send it to the phone. """
+from twisted.internet import reactor
+from twisted.internet.protocol import DatagramProtocol
+from twisted.internet import defer
+from twisted.protocols.basic import LineReceiver
 
-import sys
-import os
-import time
-import socket
-import struct
-import binascii
-import argparse
-import logging
-import logging.handlers
-import ConfigParser
-import xml.etree.ElementTree as ET
-from xml.dom import minidom
-from xml.etree.ElementTree import Element, SubElement, Comment, tostring
-from xml.etree import ElementTree
+class SIPNotifier(LineReceiver):
+    def __init__(self, target_ip, target_port):
+        self.target_ip = target_ip
+        self.target_port = target_port
 
+    def connectionMade(self):
+        self.sendNotify()
 
-# Create a logger
-logger = logging.getLogger('SIPNotify')
-logger.setLevel(logging.DEBUG)
+    def sendNotify(self):
+        event = 'telephony-event;id=1'
 
-# Create a handler for logging to a file
-log_file = logging.FileHandler('SIPNotify.log')
-log_file.setLevel(logging.DEBUG)
+        notify_message = f"""\
+NOTIFY sip:{self.target_ip}:{self.target_port} SIP/2.0
+To: <sip:{self.target_ip}:{self.target_port}>
+From: <sip:bob@example.com>
+Call-ID: 1234567890@localhost
+CSeq: 1 NOTIFY
+Event: {event}
+Subscription-State: active
+Content-Length: 0\r\n\r\n"""
 
-# Create a handler for logging to the console
-log_console = logging.StreamHandler()
-log_console.setLevel(logging.DEBUG)
+        self.sendLine(notify_message.encode('utf-8'))
+        self.transport.loseConnection()
 
-# Create a formatter for formatting the log messages
-log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+def send_notify(target_ip, target_port):
+    factory = DatagramProtocol()
+    factory.protocol = lambda: SIPNotifier(target_ip, target_port)
+    reactor.listenUDP(0, factory)
 
-# Add the formatter to the handlers
-log_file.setFormatter(log_formatter)
-log_console.setFormatter(log_formatter)
+def main():
+    target_ip = '192.168.0.100'
+    target_port = 5060  # Adjust the target port accordingly
 
-# Add the handlers to the logger
-logger.addHandler(log_file)
-logger.addHandler(log_console)
+    send_notify(target_ip, target_port)
+    reactor.run()
 
-# Create a parser for the command line arguments
-parser = argparse.ArgumentParser(description='Create a SIP Notify and send it to the phone.')
-parser.add_argument('-c', '--config', help='The path to the configuration file.', required=True)
-parser.add_argument('-d', '--debug', help='Enable debug logging.', action='store_true')
-parser.add_argument('-p', '--phone', help='The IP address of the phone.', required=True)
-parser.add_argument('-t', '--type', help='The type of SIP Notify to send.', required=True)
-parser.add_argument('-v', '--value', help='The value of the SIP Notify to send.', required=True)
-args = parser.parse_args()
-
-# Create a configuration parser
-config = ConfigParser.ConfigParser()
-
+if __name__ == '__main__':
+    main()
