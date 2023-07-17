@@ -33,7 +33,7 @@ def send_notify(target_ip, target_port):
     reactor.listenUDP(0, factory)
 
 def main():
-    target_ip = '192.168.0.100'
+    target_ip = '192.168.20.74'
     target_port = 5060  # Adjust the target port accordingly
 
     send_notify(target_ip, target_port)
