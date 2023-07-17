@@ -1,28 +1,26 @@
-// Create a new web server with Node.js
+// Create new web server
+const express = require('express');
+const bodyParser = require('body-parser');
+const app = express();
+const port = 3000;
 
-var http = require('http');
-var fs = require('fs');
+// Parse form data
+app.use(bodyParser.urlencoded({ extended: false }));
 
-var server = http.createServer(function(req, res) {
-    console.log('request was made: ' + req.url);
-    if (req.url === '/home' || req.url === '/') {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        fs.createReadStream(__dirname + '/index.html').pipe(res);
-    } else if (req.url === '/contact') {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        fs.createReadStream(__dirname + '/contact.html').pipe(res);
-    } else if (req.url === '/api/ninjas') {
-        var ninjas = [{ name: 'ryu', age: 29 }, { name: 'yoshi', age: 32 }];
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(ninjas));
-    } else {
-        res.writeHead(404, { 'Content-Type': 'text/html' });
-        fs.createReadStream(__dirname + '/404.html').pipe(res);
-    }
+// Parse JSON
+app.use(bodyParser.json());
+
+// Use static files
+app.use(express.static('public'));
+
+// Import routes
+const comments = require('./routes/comments');
+app.use(comments);
+
+// Start server
+app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}`);
 });
-
-server.listen(3000, '
-
 
 
 
