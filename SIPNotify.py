@@ -1,43 +1,30 @@
-from twisted.internet import reactor
-from twisted.internet.protocol import DatagramProtocol
-from twisted.internet import defer
-from twisted.protocols.basic import LineReceiver
+from pysip import SIPMessage, SIPTransportUDP
+from pysip.headers import ContactHeader, EventHeader
 
-class SIPNotifier(LineReceiver):
-    def __init__(self, target_ip, target_port):
-        self.target_ip = target_ip
-        self.target_port = target_port
+def send_notify(target_uri):
+    # Create a SIP transport using UDP
+    transport = SIPTransportUDP(('0.0.0.0', 0))
 
-    def connectionMade(self):
-        self.sendNotify()
+    # Create a SIP NOTIFY message
+    notify_message = SIPMessage()
+    notify_message.method = 'NOTIFY'
+    notify_message.to_header = target_uri
+    notify_message.from_header = '<sip:sender@example.com>'
+    notify_message.call_id = '1234567890@localhost'
+    notify_message.cseq_method = 'NOTIFY'
 
-    def sendNotify(self):
-        event = 'telephony-event;id=1'
+    # Add Event header indicating the event type
+    event_header = EventHeader(event='presence')
+    notify_message.headers.append(event_header)
 
-        notify_message = f"""\
-NOTIFY sip:{self.target_ip}:{self.target_port} SIP/2.0
-To: <sip:{self.target_ip}:{self.target_port}>
-From: <sip:bob@example.com>
-Call-ID: 1234567890@localhost
-CSeq: 1 NOTIFY
-Event: {event}
-Subscription-State: active
-Content-Length: 0\r\n\r\n"""
+    # Add Contact header with the sender's SIP address
+    contact_header = ContactHeader('<sip:sender@example.com>')
+    notify_message.headers.append(contact_header)
 
-        self.sendLine(notify_message.encode('utf-8'))
-        self.transport.loseConnection()
+    # Send the NOTIFY message
+    transport.send_message(notify_message, target_uri)
 
-def send_notify(target_ip, target_port):
-    factory = DatagramProtocol()
-    factory.protocol = lambda: SIPNotifier(target_ip, target_port)
-    reactor.listenUDP(0, factory)
+# Example usage
+target_uri = '<sip:deskphone@example.com>'
 
-def main():
-    target_ip = '192.168.20.74'
-    target_port = 5060  # Adjust the target port accordingly
-
-    send_notify(target_ip, target_port)
-    reactor.run()
-
-if __name__ == '__main__':
-    main()
+send_notify(target_uri)
