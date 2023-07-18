@@ -1,30 +1,35 @@
-from pysip import SIPMessage, SIPTransportUDP
-from pysip.headers import ContactHeader, EventHeader
+from twisted.internet import reactor
+from twisted.internet.protocol import DatagramProtocol
 
-def send_notify(target_uri):
-    # Create a SIP transport using UDP
-    transport = SIPTransportUDP(('0.0.0.0', 0))
+class SIPNotifier(DatagramProtocol):
+    def __init__(self, target_ip, target_port):
+        self.target_ip = target_ip
+        self.target_port = target_port
 
-    # Create a SIP NOTIFY message
-    notify_message = SIPMessage()
-    notify_message.method = 'NOTIFY'
-    notify_message.to_header = target_uri
-    notify_message.from_header = '<sip:sender@example.com>'
-    notify_message.call_id = '1234567890@localhost'
-    notify_message.cseq_method = 'NOTIFY'
+    def startProtocol(self):
+        self.sendNotify()
 
-    # Add Event header indicating the event type
-    event_header = EventHeader(event='presence')
-    notify_message.headers.append(event_header)
+    def sendNotify(self):
+        event = 'telephony-event;id=1'
 
-    # Add Contact header with the sender's SIP address
-    contact_header = ContactHeader('<sip:sender@example.com>')
-    notify_message.headers.append(contact_header)
+        notify_message = f"""\
+NOTIFY sip:{self.target_ip}:{self.target_port} SIP/2.0
+To: <sip:{self.target_ip}:{self.target_port}>
+From: <sip:bob@example.com>
+Call-ID: 1234567890@localhost
+CSeq: 1 NOTIFY
+Event: {event}
+Subscription-State: active
+Content-Length: 0\r\n\r\n"""
 
-    # Send the NOTIFY message
-    transport.send_message(notify_message, target_uri)
+        self.transport.write(notify_message.encode('utf-8'), (self.target_ip, self.target_port))
+
+def send_notify(target_ip, target_port):
+    reactor.listenUDP(0, SIPNotifier(target_ip, target_port))
+    reactor.run()
 
 # Example usage
-target_uri = '<sip:deskphone@example.com>'
+target_ip = '192.168.0.100'
+target_port = 5060  # Adjust the target port accordingly
 
-send_notify(target_uri)
+send_notify(target_ip, target_port)
